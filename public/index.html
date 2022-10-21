@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
+    <meta name="generator" content="Hugo 0.104.2">
+    <title>Deploy to Azure 🚀</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+
+    <meta name="theme-color" content="#712cf9">
+
+    <style>
+        .bd-placeholder-img {
+            font-size: 1.125rem;
+            text-anchor: middle;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+
+        @media (min-width: 768px) {
+            .bd-placeholder-img-lg {
+                font-size: 3.5rem;
+            }
+        }
+
+        .b-example-divider {
+            height: 3rem;
+            background-color: rgba(0, 0, 0, .1);
+            border: solid rgba(0, 0, 0, .15);
+            border-width: 1px 0;
+            box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
+        }
+
+        .b-example-vr {
+            flex-shrink: 0;
+            width: 1.5rem;
+            height: 100vh;
+        }
+
+        .bi {
+            vertical-align: -.125em;
+            fill: currentColor;
+        }
+
+        .nav-scroller {
+            position: relative;
+            z-index: 2;
+            height: 2.75rem;
+            overflow-y: hidden;
+        }
+
+        .nav-scroller .nav {
+            display: flex;
+            flex-wrap: nowrap;
+            padding-bottom: 1rem;
+            margin-top: -1px;
+            overflow-x: auto;
+            text-align: center;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div id="app">
+
+        <main class="container" style="margin-top: 32px">
+            <div class="bg-light p-5 rounded">
+                <div v-if="pageState === 'input'">
+                    <h1>Deploy to Azure 🚀</h1>
+                    <div style="margin-top: 24px">
+                        <small class="text-muted">{{ referrer }}</small><br /><br />
+                        <a href="#" @click.prevent="toggleLogin()">Credentials</a>
+                    </div>
+                    <div class="mb-3" style="margin-top: 24px" v-if="showLogin">
+                        <hr />
+                        <h4 style="margin-top: 24px">GitHub</h4>
+                        <label for="input1" class="form-label">Token</label>
+                        <input type="password" class="form-control" id="input1" v-model="inputs.githubToken">
+                        <h4 style="margin-top: 24px">Azure</h4>
+                        <label for="input2" class="form-label">App (client) ID</label>
+                        <input type="text" class="form-control" id="input2" v-model="inputs.appId">
+                        <label for="input3" class="form-label">App (client) Secret</label>
+                        <input type="password" class="form-control" id="input3" v-model="inputs.appSecret">
+                        <label for="input4" class="form-label">Subscription ID</label>
+                        <input type="text" class="form-control" id="input4" v-model="inputs.subscriptionId">
+                        <label for="input5" class="form-label">Tenant ID</label>
+                        <input type="text" class="form-control" id="input5" v-model="inputs.tenantId">
+                        <label for="input6" class="form-label">Directory name</label>
+                        <input type="text" class="form-control" id="input6" v-model="inputs.directoryName">
+                    </div>
+                    <div class="mb-3" style="margin-top: 24px">
+                        <hr />
+                        <h4>Deployment information</h4>
+                        <label for="envName" class="form-label">Environment name</label>
+                        <input type="text" class="form-control" id="appName" v-model="inputs.envName">
+                        <button @click.prevent="deploy()" type="button" class="btn btn-primary"
+                            style="margin-top: 24px">Deploy!</button>
+                    </div>
+                </div>
+                <div v-if="pageState === 'configuring'">
+                    <h1>Configuring GitHub workflow...</h1>
+                    <div class="text-center" style="margin-top: 96px">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">...</span>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="pageState === 'configured'">
+                    <h1>GitHub workflow configured! 🎉</h1>
+                    <div style="margin-top: 48px">
+                        <p>
+                            Your GitHub workflow is now configured to deploy to Azure.
+                            It'll take a few minutes for the first deployment to complete.
+                        </p>
+                        <p>
+                            To see the progress, check out the <b><a :href="workflowUrl" target="_blank">workflow runs</a></b>.
+                        </p>
+                        <p>
+                            Your app will be deployed to <b><a :href="portalUrl" target="_blank">{{ inputs.envName }}</a></b>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    inputs: {
+                        githubToken: '',
+                        appId: '',
+                        appSecret: '',
+                        subscriptionId: '',
+                        tenantId: '',
+                        directoryName: '',
+                        envName: '',
+                        owner: '',
+                        repo: '',
+                        location: 'centralus',
+                    },
+                    showLogin: false,
+                    referrer: '',
+                    pageState: 'input', // input, configuring, configured
+                    workflowUrl: '',
+                    portalUrl: '',
+                }
+            },
+            async mounted() {
+                this.inputs.directoryName = 'microsoft.onmicrosoft.com'
+                const match = document.referrer.match(/https:\/\/github\.com\/([^\/]+)\/([^\/]+)/)
+                if (match) {
+                    this.inputs.owner = match[1]
+                    this.inputs.repo = match[2]
+                    this.referrer = `https://github.com/${this.inputs.owner}/${this.inputs.repo}`
+                } else {
+                    this.referrer = 'Unknown'
+                }
+            },
+            methods: {
+                toggleLogin() {
+                    this.showLogin = !this.showLogin
+                },
+                async deploy() {
+                    this.pageState = 'configuring'
+                    
+                    await fetch('/deploy', {
+                        method: 'POST',
+                        headers: {
+                            'Content-type': 'application/json'
+                        },
+                        body: JSON.stringify(this.inputs)
+                    })
+
+                    this.pageState = 'configured'
+                    this.workflowUrl = `https://github.com/${this.inputs.owner}/${this.inputs.repo}/actions`
+                    this.portalUrl = `https://portal.azure.com/?feature.customportal=false#@${this.inputs.directoryName}/resource/subscriptions/${this.inputs.subscriptionId}/resourceGroups/rg-${this.inputs.envName}/overview`
+                },
+            }
+        })
+        app.mount('#app')
+    </script>
+
+
+</body>
+
+</html>
